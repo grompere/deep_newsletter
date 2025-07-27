@@ -166,7 +166,7 @@ def main():
     If there is no news in the last week, return a message saying that there is no news in the last week.
     """
 
-    user_query = f"Research the latest news and trends in the field of {topic} on {date_formatted}"
+    user_query = f"Research the latest news and trends in the field of {topic} between {date_cutoff_formatted} and {date_formatted}"
 
     print(f"\n🔍 Researching: {topic}")
     print(f"📅 Date range: {date_cutoff_formatted} to {date_formatted}")
