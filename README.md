@@ -42,26 +42,71 @@ NEWS_API_KEY=your_news_api_key_here
 
 ### 4. Email Configuration (Optional)
 
-To enable email notifications, add these to your `.env` file:
+The bot can automatically send research reports to your email inbox. This feature is optional but highly recommended.
 
+#### Step-by-Step Email Setup:
+
+**1. Create a Resend Account:**
+- Go to [Resend.com](https://resend.com) and sign up for a free account
+- Verify your email address
+
+**2. Get Your API Key:**
+- In your Resend dashboard, go to "API Keys" section
+- Click "Create API Key"
+- Copy the generated API key (it starts with `re_`)
+
+**3. Configure Your Email Settings:**
+
+You have two options for the `EMAIL_FROM` address:
+
+**Option A: Use Resend's Sandbox Domain (Recommended for Testing)**
 ```env
-# Email Configuration
-RESEND_API_KEY=your_resend_api_key_here
-EMAIL_FROM=your-verified-email@domain.com
-EMAIL_FROM_NAME=Deep Newsletter
-EMAIL_TO=recipient@example.com
+EMAIL_FROM=onboarding@resend.dev
 ```
 
-**To get your Resend API key:**
-1. Sign up at [Resend](https://resend.com)
-2. Verify your domain or use the sandbox domain (`onboarding@resend.dev`)
-3. Go to API Keys section and create a new key
-4. Add the key to your `.env` file
+**Option B: Use Your Own Domain (For Production)**
+- In Resend dashboard, go to "Domains" section
+- Add and verify your domain (e.g., `yourdomain.com`)
+- Use your verified email: `your-email@yourdomain.com`
 
-**Test email functionality:**
+**4. Update Your `.env` File:**
+```env
+# Email Configuration
+RESEND_API_KEY=re_your_actual_api_key_here
+EMAIL_FROM=onboarding@resend.dev  # or your verified email
+EMAIL_FROM_NAME=Deep Newsletter
+EMAIL_TO=your-email@gmail.com
+```
+
+**5. Test Your Email Configuration:**
 ```bash
 python test_email.py
 ```
+
+You should see:
+```
+✅ Email configuration found
+✅ Connection successful!
+✅ Test email sent successfully!
+📬 Check your inbox for the test email.
+```
+
+**6. Troubleshooting Email Issues:**
+
+- **"Email not configured"**: Check that all email variables are set in `.env`
+- **"Connection failed"**: Verify your Resend API key is correct
+- **"Failed to send email"**: 
+  - Check your internet connection
+  - Ensure `EMAIL_FROM` is verified in Resend
+  - Try using `onboarding@resend.dev` for testing
+- **Email not received**: Check spam folder and verify `EMAIL_TO` address
+
+**7. Email Features:**
+- ✅ Beautiful HTML formatting with professional styling
+- ✅ Clickable links from research sources
+- ✅ Responsive design (works on mobile and desktop)
+- ✅ Fallback plain text for email clients that don't support HTML
+- ✅ Automatic markdown to HTML conversion
 
 ## Usage
 
@@ -77,6 +122,13 @@ python deep_research_bot.py
 - Uses OpenAI's o4-mini-deep-research model
 - Web search and code interpretation capabilities
 - Email notifications with formatted reports
+
+**What happens when you run the bot:**
+1. Enter your research topic when prompted
+2. The AI generates a comprehensive report
+3. The report is displayed in the console
+4. **If email is configured**: A beautifully formatted email is automatically sent to your inbox
+5. **If email is not configured**: You'll see a helpful tip about setting up email notifications
 
 ### Method 2: News API Research
 
@@ -116,6 +168,13 @@ Both methods generate structured newsletter reports with:
 3. **Token Usage High**:
    - The deep research method uses more tokens
    - Try the News API method for simpler queries
+
+4. **Email Issues**:
+   - **"Email service not configured"**: Add email variables to your `.env` file
+   - **"Connection failed"**: Check your Resend API key
+   - **"Failed to send email"**: Verify your `EMAIL_FROM` address is verified in Resend
+   - **Email not received**: Check spam folder and verify `EMAIL_TO` address
+   - **Test email fails**: Run `python test_email.py` to debug email configuration
 
 ### Performance Tips
 
