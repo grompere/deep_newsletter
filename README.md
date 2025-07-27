@@ -1,0 +1,1 @@
+AI bot that runs deep research on user provided topics periodically sends the user a summary newsletter
