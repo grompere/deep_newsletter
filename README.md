@@ -8,7 +8,10 @@ AI-powered research bot that generates comprehensive newsletter reports on user-
 ## Features
 
 - 🤖 **Two Research Methods**: Choose between deep research or news-focused analysis
+- 📧 **Email Notifications**: Automatically sends research reports to your inbox
 - 📊 **Structured Reports**: Newsletter-style output with headlines, analysis, and key takeaways
+- 🎨 **Beautiful Emails**: HTML email templates with modern styling
+- 🔗 **Working Links**: Properly formatted clickable links in emails
 
 ## Setup
 
@@ -37,6 +40,29 @@ NEWS_API_KEY=your_news_api_key_here
 - **Google Gemini API Key**: Get from [Google AI Studio](https://aistudio.google.com/app/apikey)
 - **News API Key**: Get from [NewsAPI.org](https://newsapi.org/register)
 
+### 4. Email Configuration (Optional)
+
+To enable email notifications, add these to your `.env` file:
+
+```env
+# Email Configuration
+RESEND_API_KEY=your_resend_api_key_here
+EMAIL_FROM=your-verified-email@domain.com
+EMAIL_FROM_NAME=Deep Newsletter
+EMAIL_TO=recipient@example.com
+```
+
+**To get your Resend API key:**
+1. Sign up at [Resend](https://resend.com)
+2. Verify your domain or use the sandbox domain (`onboarding@resend.dev`)
+3. Go to API Keys section and create a new key
+4. Add the key to your `.env` file
+
+**Test email functionality:**
+```bash
+python test_email.py
+```
+
 ## Usage
 
 ### Method 1: Deep Research (Recommended)
@@ -50,6 +76,7 @@ python deep_research_bot.py
 **Features:**
 - Uses OpenAI's o4-mini-deep-research model
 - Web search and code interpretation capabilities
+- Email notifications with formatted reports
 
 ### Method 2: News API Research
 

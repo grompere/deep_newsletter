@@ -10,6 +10,8 @@ from datetime import datetime, timedelta
 import threading
 import time
 import sys
+from email_service.email_manager import EmailManager
+from config.email_config import print_email_setup_instructions
 
 # Suppress the LibreSSL warning
 warnings.filterwarnings('ignore', message='.*LibreSSL.*')
@@ -29,7 +31,7 @@ def spinner_animation():
     while spinner_running:
         sys.stdout.write(f'\rThinking ... {spinner_chars[i]}')
         sys.stdout.flush()
-        time.sleep(0.2)
+        time.sleep(0.1)
         i = (i + 1) % len(spinner_chars)
     
     # Clear the spinner line
@@ -50,80 +52,196 @@ def stop_spinner():
     global spinner_running
     spinner_running = False
 
-# Get OpenAI API key from environment variable
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+def format_report_for_email(report_text: str) -> str:
+    """
+    Format the report text for HTML email display
+    
+    Args:
+        report_text: Raw report text from OpenAI
+        
+    Returns:
+        str: HTML formatted report
+    """
+    import re
+    
+    def convert_markdown_links(text):
+        """Convert markdown links to HTML links"""
+        # Pattern to match markdown links: [text](url)
+        pattern = r'\[([^\]]+)\]\(([^)]+)\)'
+        
+        def replace_link(match):
+            link_text = match.group(1)
+            link_url = match.group(2)
+            return f'<a href="{link_url}" style="color: #007bff; text-decoration: none;">{link_text}</a>'
+        
+        return re.sub(pattern, replace_link, text)
+    
+    def convert_markdown_formatting(text):
+        """Convert basic markdown formatting to HTML"""
+        # Convert **bold** to <strong>
+        text = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', text)
+        
+        # Convert *italic* to <em>
+        text = re.sub(r'\*(.*?)\*', r'<em>\1</em>', text)
+        
+        # Convert `code` to <code>
+        text = re.sub(r'`(.*?)`', r'<code style="background-color: #f8f9fa; padding: 2px 4px; border-radius: 3px; font-family: monospace;">\1</code>', text)
+        
+        return text
+    
+    # Split the report into lines
+    lines = report_text.strip().split('\n')
+    html_parts = []
+    
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+        
+        # Convert markdown formatting first
+        line = convert_markdown_formatting(line)
+        
+        # Convert markdown links
+        line = convert_markdown_links(line)
+        
+        # Check if it's a title (usually in all caps or has special formatting)
+        if line.isupper() or line.startswith('#') or len(line) < 100:
+            html_parts.append(f'<h2 style="color: #007bff; margin-top: 20px; margin-bottom: 10px;">{line}</h2>')
+        # Check if it's a headline (starts with number or bullet)
+        elif line.startswith(('1.', '2.', '3.', '4.', '5.', '-', '•')):
+            html_parts.append(f'<div class="headline"><h3>{line}</h3></div>')
+        # Regular paragraph
+        else:
+            html_parts.append(f'<p style="margin-bottom: 15px; line-height: 1.6;">{line}</p>')
+    
+    return '\n'.join(html_parts)
 
-# If API key is not in environment, prompt user to enter it
-if not OPENAI_API_KEY:
-    print("OpenAI API key not found in environment variables.")
-    print("Please create a .env file with your OPENAI_API_KEY or enter it below.")
-    OPENAI_API_KEY = getpass.getpass("Enter your OpenAI API key: ")
+def main():
+    """Main function to run the deep research bot"""
+    
+    # Initialize email manager
+    email_manager = EmailManager()
+    
+    # Show email setup instructions if email is not configured
+    if not email_manager.is_available():
+        print_email_setup_instructions()
+    
+    # Get OpenAI API key from environment variable
+    OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
-# Validate that we have an API key
-if not OPENAI_API_KEY:
-    raise ValueError("OpenAI API key is required. Please set OPENAI_API_KEY in your .env file or provide it when prompted.")
+    # If API key is not in environment, prompt user to enter it
+    if not OPENAI_API_KEY:
+        print("OpenAI API key not found in environment variables.")
+        print("Please create a .env file with your OPENAI_API_KEY or enter it below.")
+        OPENAI_API_KEY = getpass.getpass("Enter your OpenAI API key: ")
 
-# Get the latest news on the user's provided topic
-topic = input("Enter a topic to research: ")
-date = datetime.now() - timedelta(days=1)
-date_formatted = date.strftime("%Y-%m-%d")
+    # Validate that we have an API key
+    if not OPENAI_API_KEY:
+        raise ValueError("OpenAI API key is required. Please set OPENAI_API_KEY in your .env file or provide it when prompted.")
 
-# Initialize the OpenAI client
-client = OpenAI(api_key=OPENAI_API_KEY)
+    # Get the latest news on the user's provided topic
+    topic = input("Enter a topic to research: ")
+    date = datetime.now() - timedelta(days=1)
+    date_cutoff = date - timedelta(days=7)
+    date_formatted = date.strftime("%Y-%m-%d")
+    date_cutoff_formatted = date_cutoff.strftime("%Y-%m-%d")
 
-system_message = """
-You are a professional journalist and researcher preparing a structured, data-driven report on behalf of your client. 
+    # Initialize the OpenAI client
+    client = OpenAI(api_key=OPENAI_API_KEY)
 
-Your task is to research the user's provided topic and return a newsletter style report on news and trends in the topic within 
-the user's provided time frame. The report should be in a format that is easy to read and understand.
+    system_message = """
+    You are a professional journalist and researcher preparing a structured, data-driven report on behalf of your client. 
 
-The report should be in the following format:
-- Title
-- Top 3 headlines with 1 sentence summary for each headline
-- For each headline topic, max 200 words of analysis
+    Your task is to research the user's provided topic and return a newsletter style report on news and trends in the topic within 
+    the user's provided time frame. The report should be in a format that is easy to read and understand.
 
-Be very concise and analytical. Avoid generalities, and ensure that each section is supported by by reputable sources.
-"""
+    The report should be in the following format:
+    - Title
+    - Top 3 headlines with 1 sentence summary for each headline
+    - For each headline topic, max 200 words of analysis
 
-user_query = f"Research the latest news and trends in the field of {topic} on {date_formatted}"
+    Be very concise and analytical. Avoid generalities, and ensure that each section is supported by by reputable sources.
 
-# Start the spinner animation
-spinner_thread = start_spinner()
+    Constrain the output to within 1 week of the user's provided date. 
+    If there is no news in the last week, return a message saying that there is no news in the last week.
+    """
 
-try:
-    response = client.responses.create(
-      model="o4-mini-deep-research-2025-06-26",
-      input=[
-        {
-          "role": "developer",
-          "content": [
+    user_query = f"Research the latest news and trends in the field of {topic} on {date_formatted}"
+
+    print(f"\n🔍 Researching: {topic}")
+    print(f"📅 Date range: {date_cutoff_formatted} to {date_formatted}")
+    print()
+
+    # Start the spinner animation
+    spinner_thread = start_spinner()
+
+    try:
+        response = client.responses.create(
+          model="o4-mini-deep-research-2025-06-26",
+          input=[
             {
-              "type": "input_text",
-              "text": system_message,
+              "role": "developer",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": system_message,
+                }
+              ]
+            },
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": user_query,
+                }
+              ]
+            }
+          ],
+          reasoning={
+            "summary": "auto"
+          },
+          tools=[
+            {
+              "type": "web_search_preview"
             }
           ]
-        },
-        {
-          "role": "user",
-          "content": [
-            {
-              "type": "input_text",
-              "text": user_query,
-            }
-          ]
-        }
-      ],
-      reasoning={
-        "summary": "auto"
-      },
-      tools=[
-        {
-          "type": "web_search_preview"
-        }
-      ]
-    )
-finally:
-    # Stop the spinner animation
-    stop_spinner()
+        )
+    finally:
+        # Stop the spinner animation
+        stop_spinner()
 
-print(response.output[-1].content[0].text)
+    # Get the research report
+    report_text = response.output[-1].content[0].text
+    
+    # Display the report
+    print("\n" + "="*60)
+    print("RESEARCH REPORT")
+    print("="*60)
+    print(report_text)
+    print("="*60)
+    
+    # Send email notification if configured
+    if email_manager.is_available():
+        print("\n📧 Sending email notification...")
+        
+        # Format the report for email
+        html_content = format_report_for_email(report_text)
+        
+        # Send the email
+        email_sent = email_manager.send_research_report(
+            topic=topic,
+            date=date_formatted,
+            content=html_content
+        )
+        
+        if email_sent:
+            print("✅ Email sent successfully!")
+        else:
+            print("❌ Failed to send email. Check your configuration.")
+    else:
+        print("\n💡 Tip: Configure email notifications to receive reports in your inbox!")
+        print("   Add RESEND_API_KEY, EMAIL_FROM, and EMAIL_TO to your .env file.")
+
+if __name__ == "__main__":
+    main()
