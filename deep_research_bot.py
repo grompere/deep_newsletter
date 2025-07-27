@@ -79,12 +79,10 @@ the user's provided time frame. The report should be in a format that is easy to
 
 The report should be in the following format:
 - Title
-- Top 3 headlines with 1 sentence summary
-- For each headline topic, 1-2 paragraphs of analysis
-- Key takeaways
-- Sources
+- Top 3 headlines with 1 sentence summary for each headline
+- For each headline topic, max 200 words of analysis
 
-Be analytical, avoid generalities, and ensure that each section is supported by by reputable sources.
+Be very concise and analytical. Avoid generalities, and ensure that each section is supported by by reputable sources.
 """
 
 user_query = f"Research the latest news and trends in the field of {topic} on {date_formatted}"
@@ -121,13 +119,6 @@ try:
       tools=[
         {
           "type": "web_search_preview"
-        },
-        {
-          "type": "code_interpreter",
-          "container": {
-            "type": "auto",
-            "file_ids": []
-          }
         }
       ]
     )
