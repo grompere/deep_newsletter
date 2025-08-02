@@ -1,9 +1,11 @@
 import os
 from typing import Optional
 from jinja2 import Template
-from .base import EmailService, EmailContent
+from .base import EmailService, EmailContent, EmailConfig
 from .resend_service import ResendEmailService
-from config.email_config import get_email_config, get_recipient_email
+from config.settings import get_settings
+from config.email_config import print_email_setup_instructions
+from pydantic import ValidationError
 
 
 class EmailManager:
@@ -16,12 +18,28 @@ class EmailManager:
     
     def _initialize_email_service(self):
         """Initialize the email service if configuration is available"""
-        config = get_email_config()
-        recipient = get_recipient_email()
-        
-        if config and recipient:
-            self.email_service = ResendEmailService(config)
-            self.recipient_email = recipient
+        try:
+            settings = get_settings()
+            email_settings = settings.email
+            
+            # Check if email is properly configured
+            if email_settings.is_configured():
+                # Create EmailConfig from pydantic settings
+                config = EmailConfig(
+                    api_key=email_settings.resend_api_key,
+                    from_email=email_settings.from_email,
+                    from_name=email_settings.from_name
+                )
+                
+                self.email_service = ResendEmailService(config)
+                self.recipient_email = email_settings.to_email
+                
+        except ValidationError as e:
+            # If validation fails, email service remains None
+            print(f"📧 Email configuration validation failed: {e}")
+        except Exception as e:
+            # Handle any other configuration errors
+            print(f"📧 Error initializing email service: {e}")
     
     def is_available(self) -> bool:
         """Check if email service is available"""

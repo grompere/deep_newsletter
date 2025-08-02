@@ -4,7 +4,6 @@
 from openai import OpenAI
 import os
 import getpass
-from dotenv import load_dotenv
 import warnings
 from datetime import datetime, timedelta
 import threading
@@ -12,12 +11,11 @@ import time
 import sys
 from email_service.email_manager import EmailManager
 from config.email_config import print_email_setup_instructions
+from config.settings import get_settings
+from pydantic import ValidationError
 
 # Suppress the LibreSSL warning
 warnings.filterwarnings('ignore', message='.*LibreSSL.*')
-
-# Load environment variables from .env file
-load_dotenv()
 
 # Global variable to control spinner
 spinner_running = False
@@ -116,8 +114,47 @@ def format_report_for_email(report_text: str) -> str:
     
     return '\n'.join(html_parts)
 
+def get_openai_api_key(settings) -> str:
+    """
+    Get OpenAI API key from settings or prompt user
+    
+    Args:
+        settings: Application settings
+        
+    Returns:
+        str: OpenAI API key
+        
+    Raises:
+        ValueError: If no API key is provided
+    """
+    try:
+        # Try to get API key from settings
+        return settings.openai.api_key
+    except ValidationError:
+        # If validation fails (key not found), prompt user
+        print("OpenAI API key not found in environment variables.")
+        print("Please add OPENAI_API_KEY to your .env file or enter it below.")
+        api_key = getpass.getpass("Enter your OpenAI API key: ")
+        
+        if not api_key:
+            raise ValueError("OpenAI API key is required. Please set OPENAI_API_KEY in your .env file or provide it when prompted.")
+        
+        return api_key
+
 def main():
     """Main function to run the deep research bot"""
+    
+    try:
+        # Load application settings
+        settings = get_settings()
+        
+        if settings.debug:
+            print(f"🔧 Running in {settings.environment} environment")
+        
+    except ValidationError as e:
+        print(f"❌ Configuration error: {e}")
+        print("Please check your .env file and ensure all required settings are configured.")
+        return
     
     # Initialize email manager
     email_manager = EmailManager()
@@ -126,19 +163,13 @@ def main():
     if not email_manager.is_available():
         print_email_setup_instructions()
     
-    # Get OpenAI API key from environment variable
-    OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-
-    # If API key is not in environment, prompt user to enter it
-    if not OPENAI_API_KEY:
-        print("OpenAI API key not found in environment variables.")
-        print("Please create a .env file with your OPENAI_API_KEY or enter it below.")
-        OPENAI_API_KEY = getpass.getpass("Enter your OpenAI API key: ")
-
-    # Validate that we have an API key
-    if not OPENAI_API_KEY:
-        raise ValueError("OpenAI API key is required. Please set OPENAI_API_KEY in your .env file or provide it when prompted.")
-
+    # Get OpenAI API key
+    try:
+        api_key = get_openai_api_key(settings)
+    except ValueError as e:
+        print(f"❌ {e}")
+        return
+    
     # Get the latest news on the user's provided topic
     topic = input("Enter a topic to research: ")
     date = datetime.now() - timedelta(days=1)
@@ -147,7 +178,7 @@ def main():
     date_cutoff_formatted = date_cutoff.strftime("%Y-%m-%d")
 
     # Initialize the OpenAI client
-    client = OpenAI(api_key=OPENAI_API_KEY)
+    client = OpenAI(api_key=api_key)
 
     system_message = """
     You are a professional journalist and researcher preparing a structured, data-driven report on behalf of your client. 
