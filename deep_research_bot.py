@@ -13,6 +13,11 @@ from email_service.email_manager import EmailManager
 from config.email_config import print_email_setup_instructions
 from config.settings import get_settings
 from pydantic import ValidationError
+from tenacity import (
+    retry,
+    stop_after_attempt,
+    wait_random_exponential,
+)
 
 # Suppress the LibreSSL warning
 warnings.filterwarnings('ignore', message='.*LibreSSL.*')
@@ -180,6 +185,11 @@ def main():
     # Initialize the OpenAI client
     client = OpenAI(api_key=api_key)
 
+    # Implement exponential backoff & retry for the OpenAI API call
+    @retry(wait=wait_random_exponential(min=1, max=60), stop=stop_after_attempt(6))
+    def completion_with_backoff(**kwargs):
+        return client.responses.create(**kwargs)
+
     system_message = """
     You are a professional journalist and researcher preparing a structured, data-driven report on behalf of your client. 
 
@@ -207,7 +217,7 @@ def main():
     spinner_thread = start_spinner()
 
     try:
-        response = client.responses.create(
+        response = completion_with_backoff(
           model="o4-mini-deep-research-2025-06-26",
           input=[
             {
