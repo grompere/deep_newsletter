@@ -54,8 +54,8 @@ class EmailSettings(BaseSettings):
         env="RESEND_API_KEY",
         description="Resend API key for email notifications"
     )
-    from_email: str = Field(
-        "onboarding@resend.dev",
+    from_email: EmailStr = Field(
+        None,
         env="EMAIL_FROM", 
         description="From email address"
     )
@@ -64,8 +64,8 @@ class EmailSettings(BaseSettings):
         env="EMAIL_FROM_NAME",
         description="From name for emails"
     )
-    to_email: str = Field(
-        "zsolt.mrtn@gmail.com",
+    to_email: EmailStr = Field(
+        None,
         env="EMAIL_TO",
         description="Recipient email address"
     )
